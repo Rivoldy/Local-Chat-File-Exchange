@@ -1,6 +1,7 @@
 # Local Chat and File Exchange
 
 This is a real-time chat and file exchange application built with Node.js, Express, and Socket.IO. The application allows users to send messages, upload and download files, edit and delete messages, and delete files.
+![Screenshot of the Application](https://github.com/Rivoldy/Local-Chat-File-Exchange/blob/master/Screenshot%20(260).png)
 ## Features
 
 ### Real-time Messaging
