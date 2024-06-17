@@ -50,6 +50,8 @@ This application is designed to facilitate efficient communication and file shar
 4. **Open your browser and navigate to**
     ```sh
     http://localhost:3000
-  Alternatively, use the local network IP address to allow other devices on the same network to connect:
-  ```sh
-  http://<your_local_ip_address>:3000
+5. Alternatively, use the local network IP address to allow other devices on the same network to connect:
+     ```sh
+     http://<your_local_ip_address>:3000
+     
+#### This program was created and developed by myself. If you have any questions or suggestions, feel free to reach out to me at rivoldydaya@gmail.com.
