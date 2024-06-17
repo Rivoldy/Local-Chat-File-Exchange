@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat and File Exchange</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f0f2f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+
+        #chat-header {
+            background-color: #007bff;
+            color: #ffffff;
+            padding: 10px;
+            text-align: center;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+        }
+
+        #chat-box {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .chat-message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 70%;
+            position: relative;
+            background-color: #e2e3e5;
+        }
+
+        .chat-message.me {
+            background-color: #dcf8c6;
+            margin-left: auto;
+        }
+
+        .chat-message.others {
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+        }
+
+        .chat-message p {
+            margin: 0;
+        }
+
+        .chat-message .timestamp {
+            font-size: 0.8em;
+            color: #6c757d;
+            text-align: right;
+        }
+
+        .chat-message img {
+            max-width: 100%;
+            border-radius: 5px;
+        }
+
+        #message-input-container {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid #ddd;
+        }
+
+        #message-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            margin-right: 10px;
+            outline: none;
+        }
+
+        #send-button {
+            background-color: #007bff;
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+
+        #file-upload-container {
+            padding: 10px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        #upload-button {
+            background-color: #007bff;
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+
+        #show-files-button {
+            background-color: #28a745;
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+
+        #fileList {
+            display: none;
+        }
+
+        #fileList a {
+            text-decoration: none;
+            color: #007bff;
+        }
+
+        #fileList a:hover {
+            text-decoration: underline;
+        }
+
+        .delete-btn,
+        .edit-btn {
+            background: none;
+            border: none;
+            color: red;
+            cursor: pointer;
+            float: right;
+        }
+
+        .edit-btn {
+            color: blue;
+        }
+
+        @media (max-width: 600px) {
+            #message-input-container {
+                flex-direction: column;
+            }
+
+            #send-button {
+                margin-top: 10px;
+                width: 100%;
+            }
+
+            #file-upload-container {
+                flex-direction: column;
+            }
+
+            #upload-button,
+            #show-files-button {
+                margin-top: 10px;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="chat-container">
+        <div id="chat-header">
+            <h2>Chat and File Exchange</h2>
+        </div>
+        <div id="chat-box"></div>
+        <div id="message-input-container">
+            <input type="text" id="message-input" placeholder="Type a message">
+            <button id="send-button" onclick="sendMessage()"><i class="fas fa-paper-plane"></i> Send</button>
+        </div>
+        <div id="file-upload-container">
+            <input type="file" id="fileInput" name="file" onchange="uploadFile()">
+            <button id="upload-button" onclick="document.getElementById('fileInput').click()"><i class="fas fa-upload"></i> Upload File</button>
+            <button id="show-files-button" onclick="toggleFileList()"><i class="fas fa-folder-open"></i> Show Files</button>
+        </div>
+        <div id="fileList" class="list-group mt-3"></div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let editingMessageId = null;
+
+        function sendMessage() {
+            const messageInput = document.getElementById('message-input');
+            const message = messageInput.value;
+            if (message.trim() !== '') {
+                if (editingMessageId) {
+                    socket.emit('edit_message', { id: editingMessageId, text: message });
+                    editingMessageId = null;
+                } else {
+                    socket.emit('message', { text: message });
+                }
+                messageInput.value = '';
+            }
+        }
+
+        socket.on('initial_messages', (msgs) => {
+            msgs.forEach(msg => displayMessage(msg));
+        });
+
+        socket.on('message', (msg) => {
+            displayMessage(msg);
+            notifyUser(msg.text);
+        });
+
+        socket.on('message_deleted', (messageId) => {
+            const messageElement = document.getElementById(messageId);
+            if (messageElement) {
+                messageElement.remove();
+            }
+        });
+
+        socket.on('message_edited', (editedMessage) => {
+            const messageElement = document.getElementById(editedMessage.id);
+            if (messageElement) {
+                messageElement.querySelector('p').innerText = editedMessage.text;
+            }
+        });
+
+        function displayMessage(msg) {
+            const chatBox = document.getElementById('chat-box');
+            const messageElement = document.createElement('div');
+            const senderClass = msg.senderId === socket.id ? 'me' : 'others';
+            messageElement.classList.add('chat-message', senderClass);
+            messageElement.id = msg.id;
+            messageElement.innerHTML = `<p>${msg.text}</p><p class="timestamp">${msg.time}</p>`;
+            if (msg.senderId === socket.id) {
+                messageElement.innerHTML += `<button class="edit-btn" onclick="editMessage(${msg.id}, '${msg.text}')"><i class="fas fa-edit"></i></button>`;
+                messageElement.innerHTML += `<button class="delete-btn" onclick="deleteMessage(${msg.id})"><i class="fas fa-trash-alt"></i></button>`;
+            }
+            chatBox.appendChild(messageElement);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function editMessage(messageId, text) {
+            editingMessageId = messageId;
+            document.getElementById('message-input').value = text;
+        }
+
+        function deleteMessage(messageId) {
+            if (confirm('Are you sure you want to delete this message?')) {
+                socket.emit('delete_message', messageId);
+            }
+        }
+
+        function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            if (confirm('Are you sure you want to upload this file?')) {
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('message-status').innerText = data.message;
+                        loadFiles();
+                        alert('File uploaded successfully!');
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        document.getElementById('message-status').innerText = 'Error uploading file.';
+                        alert('Error uploading file.');
+                    });
+            }
+        }
+
+        socket.on('file_uploaded', (data) => {
+            loadFiles();
+        });
+
+        socket.on('file_deleted', (data) => {
+            const fileList = document.getElementById('fileList');
+            const fileElement = document.querySelector(`li[data-filename="${data.filename}"]`);
+            if (fileElement) {
+                fileElement.remove();
+            }
+        });
+
+        async function loadFiles() {
+            try {
+                const response = await fetch('/files');
+                const files = await response.json();
+                const fileList = document.getElementById('fileList');
+                fileList.innerHTML = '';
+                files.forEach(file => {
+                    const li = document.createElement('li');
+                    li.classList.add('list-group-item');
+                    li.setAttribute('data-filename', file.name);
+                    const link = document.createElement('a');
+                    link.href = file.url;
+                    link.innerText = file.name;
+                    link.target = "_blank";
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.classList.add('delete-btn');
+                    deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+                    deleteBtn.onclick = () => deleteFile(file.name);
+                    li.appendChild(link);
+                    li.appendChild(deleteBtn);
+                    fileList.appendChild(li);
+                });
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        function toggleFileList() {
+            const fileList = document.getElementById('fileList');
+            if (fileList.style.display === 'none' || fileList.style.display === '') {
+                loadFiles();
+                fileList.style.display = 'block';
+            } else {
+                fileList.style.display = 'none';
+            }
+        }
+
+        function deleteFile(filename) {
+            if (confirm('Are you sure you want to delete this file?')) {
+                fetch(`/delete/${filename}`, {
+                    method: 'DELETE'
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        alert('File deleted successfully!');
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error deleting file.');
+                    });
+            }
+        }
+
+        function notifyUser(message) {
+            if (Notification.permission === "granted") {
+                new Notification("New Message", {
+                    body: message
+                });
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (Notification.permission !== "granted") {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        notifyUser("Notifications enabled");
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+
+</html>
